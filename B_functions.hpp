@@ -46,7 +46,7 @@ double LinFit( Foncteur& F, unsigned int n_data, double* x, double* y,
 {
   EigenMatrix G(n_data, n_par), Cd(n_data, n_data), K,A;
   EigenVector M(n_par), Mp(n_par), D(n_data), Do(n_data), Y, X(n_data), sol(n_par);
-  double relative_error, co=1.0, xmax=1.0;
+  double relative_error, co{1.0}, xmax{1.0};
   //
   Cd.setZero();
   if( y==0 ) return -1.0;
@@ -55,10 +55,10 @@ double LinFit( Foncteur& F, unsigned int n_data, double* x, double* y,
     if(x!=0){ xmax=x[n_data-1]; }
     else{ xmax = static_cast<double>(n_data); }
   }
-  std::cout<<xmax<<"  "<<islin<<std::endl;
+  //std::cout<<xmax<<"  "<<islin<<std::endl;
   for(int i=0;i<n_data;++i)
   {
-    double ix=static_cast<double>(i);
+    double ix{(double)i};
     Do(i) = y[i];
     //ABSCISSES
     if(x!=0){     X(i) = x[i] / xmax;     }
@@ -67,7 +67,7 @@ double LinFit( Foncteur& F, unsigned int n_data, double* x, double* y,
     if(sigma==0){   Cd(i,i) = 1.0;    }
     else{           Cd(i,i) = sigma[i]*sigma[i];     }
     //TRANSPOSEE DU JACOBIEN
-    std::cout<<"    ";
+    //std::cout<<"    ";
     for(int j=0;j<n_par;++j)
     {
       
@@ -77,12 +77,12 @@ double LinFit( Foncteur& F, unsigned int n_data, double* x, double* y,
         else{ M(j) = 0.0; }
       }
       G(i,j) = F.Ppartial( j, X(i) );
-      std::cout<<"    ("<<F[j]<<" "<<X(i)<<")  "<<G(i,j);
+      //std::cout<<"    ("<<F[j]<<" "<<X(i)<<")  "<<G(i,j);
     }
-    std::cout<<std::endl;
+    //std::cout<<std::endl;
   }
   //Kt*first guess
-  std::cout<<"fg : \n"<<M<<std::endl;
+  //std::cout<<"fg : \n"<<M<<std::endl;
   D = G*M;
   // Linear least square solving
   // Inversion linéaire, pas d'irétaions
@@ -144,19 +144,19 @@ class ParametricBase
     /// Constructeurs
     ///
     ParametricBase(void):par() { };
-    ParametricBase( unsigned int s ):par(s, static_cast<T>(0)) {  };
+    ParametricBase( unsigned int s ):par(s, T{0}) {  };
     ParametricBase( unsigned int s, const T& a ):par(s, a) {  };
-    ParametricBase( int s ):par( abs(s), static_cast<T>(0) ) {  };
+    ParametricBase( int s ):par( abs(s), T{0} ) {  };
     ParametricBase( int s, const T& a ):par( abs(s), a ) {  };
     ParametricBase( const ParametricBase<T>& c ): par(c.par) {  };
     template<typename U> ParametricBase( const ParametricBase<U>& c ): par()
-    {  for(auto a=c.par.begin(); a!=c.par.end();++a) par.push_back( static_cast<T>( *a ) );  };
+    {  for(auto a=c.par.begin(); a!=c.par.end();++a) par.push_back( T{*a} );  };
     virtual ~ParametricBase() { par.clear(); };
     
     ///
     /// Accéder aux parametres
     ///
-    virtual T operator[](unsigned int i) const { if(i<par.size()) return par[i]; else return static_cast<T>(0); };
+    virtual T operator[](unsigned int i) const { if(i<par.size()) return par[i]; else return T{0}; };
     virtual const T* Parameters(void) const { return par.data(); };
     virtual operator const T* () const { return par.data(); };
     virtual operator unsigned int () { return par.size();};
@@ -177,7 +177,7 @@ class ParametricBase
       else
       {
         //Comportement par défaut pour les pmolynomes
-        for(unsigned int u=0;u<len;++u) par.push_back( static_cast<T>(1.0)/static_cast<T>(u+1) );
+        for(unsigned int u=0;u<len;++u) par.push_back( T{1}/T{((double)u+1)} );
       }
       return *this;
     };
@@ -195,23 +195,23 @@ class Polynome : public virtual ParametricBase<T>
     ///
     /// Constructeurs
     ///
-    Polynome(void):ParametricBase<T>() { this->par.push_back( static_cast<T>(1) ); };
+    Polynome(void):ParametricBase<T>() { this->par.push_back( T{1} ); };
     Polynome(T* a, unsigned int len):ParametricBase<T>()
     {
-      unsigned int u=0;
+      unsigned int u{0};
       while(u!=len)
       {
         if( a!=0) this->par.push_back( a[u] );
-        else this->par.push_back( static_cast<T>(1.0)/static_cast<T>(u+1) );
+        else this->par.push_back( T{1}/T{(u+1)} );
         ++u;
       }
     };
     Polynome(unsigned int len):ParametricBase<T>()
     {
-      unsigned int u=0;
+      unsigned int u{0};
       while(u!=len)
       {
-        this->par.push_back( static_cast<T>(1.0)/static_cast<T>(u+1) );
+        this->par.push_back( T{1}/T{((double)u+1)} );
         ++u;
       }
     };
@@ -224,7 +224,7 @@ class Polynome : public virtual ParametricBase<T>
     ///
     T operator()(const T& x) const
     {
-      T sum=static_cast<T>(0), X=static_cast<T>(1);
+      T sum{0}, X{1};
       for(unsigned int i=0;i<this->par.size();++i)
       {
         sum = sum + this->par[i] * X;
@@ -238,10 +238,10 @@ class Polynome : public virtual ParametricBase<T>
     ///
     T prime(const T& x) const
     {
-      T sum=static_cast<T>(0), X=static_cast<T>(1);
+      T sum{0}, X{1};
       for(unsigned int i=1;i<this->par.size();++i)
       {
-        sum = sum + static_cast<T>(i) * this->par[i] * X;
+        sum = sum + T{i} * this->par[i] * X;
         X = X * x;
       }
       return sum;
@@ -252,14 +252,14 @@ class Polynome : public virtual ParametricBase<T>
     ///
     T derivative(unsigned int d, const T& x) const
     {
-      T sum=static_cast<T>(0), X=static_cast<T>(1), A;
+      T sum{0}, X{1}, A;
       if(d>=this->par.size()) sum;
       for(unsigned int i=d;i<this->par.size();++i)
       {
-        A = static_cast<T>(i);
+        A = T{i};
         for(unsigned int j=1;j<i;++j)
         {
-          A=A*static_cast<T>(i-j);
+          A=A*T{(i-j)};
         };
         sum = sum + A * this->par[i] * X;
         X = X * x;
@@ -272,7 +272,7 @@ class Polynome : public virtual ParametricBase<T>
     ///
     T Ppartial( unsigned int j, const T& x) const
     {
-      if( j>=this->par.size() )return static_cast<T>(0);
+      if( j>=this->par.size() )return T{0};
       if( j==0 ) return this->par[0];
       if( j==1 ) return x;
       return static_cast<T>( pow(x, j) );
@@ -297,7 +297,7 @@ class Polynome : public virtual ParametricBase<T>
                                                            this->par.data(), this->par.data(),
                                                            0, res, true );
       }
-      return static_cast<T>( s );
+      return T{s};
     };
     
     ///
@@ -312,8 +312,8 @@ class Polynome : public virtual ParametricBase<T>
       if( a==0 ) return *this;
       for(unsigned int u=0;u<len;++u) a[u] = this->par[u];
     };
-    virtual operator bool () const {return true; }; //linéaire en alpha, r = true
-    virtual operator bool () {return true; }; //linéaire en alpha, r = true
+    inline virtual operator bool () const {return true; }; //linéaire en alpha, r = true
+    inline virtual operator bool () {return true; }; //linéaire en alpha, r = true
     
 };
 
@@ -329,8 +329,8 @@ class InversPowerProp : public virtual ParametricBase<T>
     /// Constructeuers
     /// par défaut F : x -> 1/x
     ///
-    InversPowerProp(void):ParametricBase<T>() { this->par.push_back( static_cast<T>( 1 ) ); this->par.push_back( static_cast<T>( 1 ) ); };
-    InversPowerProp(const T& a, const T& p):ParametricBase<T>() { this->par.push_back( static_cast<T>( 1 ) ); this->par.push_back( static_cast<T>( 1 ) );};
+    InversPowerProp(void):ParametricBase<T>() { this->par.push_back( T{1} ); this->par.push_back( T{1} ); };
+    InversPowerProp(const T& a, const T& p):ParametricBase<T>() { this->par.push_back( T{1} ); this->par.push_back( T{1} );};
     InversPowerProp(const InversPowerProp<T>& c):ParametricBase<T>(c) { };
     template<typename U> InversPowerProp(const InversPowerProp<U>& c):ParametricBase<T>(c) { };
     virtual ~InversPowerProp() { };
@@ -340,8 +340,8 @@ class InversPowerProp : public virtual ParametricBase<T>
     ///
     T operator()(const T& x) const
     {
-      if(x!=static_cast<T>(0) ) return this->par[0] / pow( x, this->par[1] );
-      return static_cast<T>(0);
+      if(x!=T{0} ) return this->par[0] / pow( x, this->par[1] );
+      return T{0};
     };
     
     ///
@@ -349,8 +349,8 @@ class InversPowerProp : public virtual ParametricBase<T>
     ///
     T prime(const T& x) const
     {
-      if(x!=static_cast<T>(0) ) return -(this->par[1]) * this->par[0] / static_cast<T>( pow( x, (this->par[1])+1.0 ) );
-      return -static_cast<T>(0);
+      if(x!=T{0} ) return -(this->par[1]) * this->par[0] / static_cast<T>( pow( x, (this->par[1])+1.0 ) );
+      return -T{0};
     };
     
     ///
@@ -358,14 +358,14 @@ class InversPowerProp : public virtual ParametricBase<T>
     ///
     T derivative(unsigned int d, const T& x) const
     {
-      T R, u, v, n;
+      T R, u, v, n{1};
       R = this->par[1];
       u = static_cast<T>( pow( x, this->par[1] )); 
-      n = static_cast<T>(1.0);      v = n;
+      v = n;
       while( d!=1){   v = v*R;   u = u*x;   R+=n;   --d;   }
       u = u*x;
-      if( u!=static_cast<T>(0) )return this->par[0]*v/u;
-      return static_cast<T>(0);
+      if( u!=T{0} )return this->par[0]*v/u;
+      return T{0};
     };
     
     ///
@@ -375,20 +375,20 @@ class InversPowerProp : public virtual ParametricBase<T>
     T Ppartial( unsigned int j, const T& x) const
     {
       j=j%2;
-      if( x==static_cast<T>(0) ) return static_cast<T>(0);
+      if( x==T{0} ) return T{0};
       if(j==0)
       {
-        return static_cast<T>(1.0) / static_cast<T>( pow( x, this->par[1]));
+        return T{1} / static_cast<T>( pow( x, this->par[1]));
       }
       else
       {
-        if( x > static_cast<T>(0) )
+        if( x > T{0} )
         {
           return static_cast<T>( pow(x, this->par[1]) * log( x ) );
         }
         else
         {
-          return static_cast<T>(0); //root
+          return T{0}; //root
         }
       }
     };
@@ -400,9 +400,9 @@ class InversPowerProp : public virtual ParametricBase<T>
     ///
     T Retrieve(T* x, T* y, unsigned int len)
     {
-      unsigned int u=0, v=len-1, nu=0, nv=0;
+      unsigned int u{0}, v{len-1}, nu{0}, nv{0};
       T x1, x2, y1, y2;
-      T diff, zero=static_cast<T>(0);
+      T diff, zero={0};
       if(!len || (x==0) || (y==0) ) return zero;
       while( u!=len/2 )
       {
@@ -411,10 +411,10 @@ class InversPowerProp : public virtual ParametricBase<T>
         ++u; --v;
       }
       if( !nu || !nv ) return zero;
-      x1=x1/static_cast<T>(nu);
-      y1=y1/static_cast<T>(nu);
-      x2=x2/static_cast<T>(nv);
-      y2=y2/static_cast<T>(nv);
+      x1=x1/T{nu};
+      y1=y1/T{nu};
+      x2=x2/T{nv};
+      y2=y2/T{nv};
       // ON résoud simplement 
       this->par[1] = static_cast<T>( log(y2/y1) / log(x1/x2) );
       this->par[0] = y1 * static_cast<T>( pow(x1, this->par[1]) );
@@ -426,7 +426,7 @@ class InversPowerProp : public virtual ParametricBase<T>
         diff+= static_cast<T>( sqrt(x1*x1) );
         ++u;
       }
-      diff=diff/static_cast<T>(len);
+      diff=diff/T{len};
       return diff;
     };
     
@@ -439,8 +439,8 @@ class InversPowerProp : public virtual ParametricBase<T>
     /// Accéder aux paramètres et aux nombres de paramètres
     ///
     InversPowerProp<T>& Parameters(T& a, T& p){  a=this->par[0];  p=this->par[1];  return *this; };
-    virtual operator bool () const {return false; }; //linéaire en alpha, r = true
-    virtual operator bool () {return false; }; //linéaire en alpha, r = true
+    inline virtual operator bool () const {return false; }; //linéaire en alpha, r = true
+    inline virtual operator bool () {return false; }; //linéaire en alpha, r = true
     
 };
 
