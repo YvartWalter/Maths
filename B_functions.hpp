@@ -8,7 +8,7 @@
 /// Fournir des foncteurs sortran une fonction ou sa dérivée 
 ///
 #ifndef _BIG_B_MATH_MODULE_
-
+static const double Class_Maths_B_var1 = 0.01;
 ///
 /// \brief fit une fonction paramétrique F_k(x)=y passée par foncteur, F est linéaire en k
 /// \param n_par nombre de paramètres pris pat F
@@ -58,7 +58,7 @@ double LinFit( Foncteur& F, unsigned int n_data, double* x, double* y,
   //std::cout<<xmax<<"  "<<islin<<std::endl;
   for(int i=0;i<n_data;++i)
   {
-    double ix{(double)i};
+    double ix{(double)i + Class_Maths_B_var1};
     Do(i) = y[i];
     //ABSCISSES
     if(x!=0){     X(i) = x[i] / xmax;     }
@@ -132,6 +132,7 @@ class Function : virtual public Policy
     template<class Military> Function(const Function<Military>& f):Policy(f) { };
     
     virtual ~Function() {};
+    
 };
 
 template<typename T>
@@ -156,12 +157,13 @@ class ParametricBase
     ///
     /// Accéder aux parametres
     ///
-    virtual T operator[](unsigned int i) const { if(i<par.size()) return par[i]; else return T{0}; };
-    virtual const T* Parameters(void) const { return par.data(); };
-    virtual operator const T* () const { return par.data(); };
-    virtual operator unsigned int () { return par.size();};
-    virtual T* Parameters(void) { return par.data(); };
-    virtual operator T* () { return par.data(); };
+    inline virtual T operator[](unsigned int i) const { if(i<par.size()) return par[i]; else return T{0}; };
+    inline virtual const T* Parameters(void) const { return par.data(); };
+    inline virtual operator const T* () const { return par.data(); };
+    inline virtual operator unsigned int () const { return par.size();};
+    inline virtual operator unsigned int () { return par.size();};
+    inline virtual T* Parameters(void) { return par.data(); };
+    inline virtual operator T* () { return par.data(); };
     
     ///
     /// MLodifier les parametres
@@ -186,17 +188,75 @@ class ParametricBase
 };
 
 ///
+/// Fournir une base linéaire automatique ne passant pas par 0 et finissant proche de 1
+///
+template<typename T>
+class auto_base_lin
+{
+  protected:
+    std::vector<T> abs;
+    T max;
+  public:
+    auto_base_lin(void):abs(), max(0) { };
+    auto_base_lin(unsigned int len):abs(len), max(T{len})
+    {
+      while(len!=0){  abs[len-1] = T{Class_Maths_B_var1}+T{len-1}/max; len--; }
+    };
+    auto_base_lin(const auto_base_lin& a):abs(a.abs), max(a.max) { };
+    template<typename U> auto_base_lin(const auto_base_lin<U>& a):abs(), max(0)
+    {
+      for(unsigned int i=0;i<a.abs.size();++i)
+      {
+        abs.push_back( T{a.abs[i]});
+      }
+      max=T(abs.size());
+    };
+    virtual ~auto_base_lin() { };
+    
+    void Rebase(unsigned int len)
+    {
+      abs.clear();
+      max=static_cast<T>(len);
+      for(unsigned int i=0;i<len;++i)
+      {
+        abs.push_back( T{Class_Maths_B_var1}+static_cast<T>(i)/max );
+      }
+    };
+    
+    void LasyRebase(unsigned int len){  if(len!=abs.size()) Rebase( len );  };
+    
+    void StrongRebase( T* x, unsigned int len )
+    {
+      abs.clear();
+      max=static_cast<T>(len);
+      for(unsigned int i=0;i<len;++i){   abs.push_back( x[i] );   }
+    }
+    
+    inline T at( unsigned int i) const { return abs[i%abs.size()]; };
+    inline T at( unsigned int i){ return abs[i%abs.size()]; };
+    
+    inline T* Base(void) const { return abs.data(); };
+    inline T* Base(void){ return abs.data(); };
+    
+    inline operator unsigned int() { return abs.size(); };
+    inline operator unsigned int() const { return abs.size(); };
+    
+    inline operator bool () {return true; };
+    inline operator bool () const {return true; };
+};
+
+///
 /// Polynome de degré quelconque, le coefficient du degré le plus bas en premier BigEndian
 ///
 template<typename T>
-class Polynome : public virtual ParametricBase<T>
+class Polynome : public virtual ParametricBase<T>, private virtual auto_base_lin<T>
 {
   public:
     ///
     /// Constructeurs
     ///
-    Polynome(void):ParametricBase<T>() { this->par.push_back( T{1} ); };
-    Polynome(T* a, unsigned int len):ParametricBase<T>()
+    Polynome(void):ParametricBase<T>(), auto_base_lin<T>() { this->par.push_back( T{1} ); };
+    Polynome(T* a, unsigned int len):ParametricBase<T>(), auto_base_lin<T>()
     {
       unsigned int u{0};
       while(u!=len)
@@ -206,7 +266,7 @@ class Polynome : public virtual ParametricBase<T>
         ++u;
       }
     };
-    Polynome(unsigned int len):ParametricBase<T>()
+    Polynome(unsigned int len):ParametricBase<T>(), auto_base_lin<T>()
     {
       unsigned int u{0};
       while(u!=len)
@@ -215,8 +275,8 @@ class Polynome : public virtual ParametricBase<T>
         ++u;
       }
     };
-    Polynome( const Polynome& p ):ParametricBase<T>(p) { };
-    template<typename U> Polynome( const Polynome<U>& p ):ParametricBase<T>(p) { };
+    Polynome( const Polynome& p ):ParametricBase<T>(p), auto_base_lin<T>(p) { };
+    template<typename U> Polynome( const Polynome<U>& p ):ParametricBase<T>(p), auto_base_lin<T>(p) { };
     virtual ~Polynome() { };
     
     ///
@@ -279,6 +339,24 @@ class Polynome : public virtual ParametricBase<T>
       
     };
     
+    void ForAll(T* a, unsigned int len)
+    {
+      this->auto_base_lin<T>::LasyRebase( len );
+      for(unsigned int i=0;i<len;++i)
+      {
+        a[i] = this( this->auto_base_lin<T>::at(i) );
+      }
+    };
+    
+    void ForAll(T* x, T* y, unsigned int len)
+    {
+      this->auto_base_lin<T>::StrongRebase( x, len );
+      for(unsigned int i=0;i<len;++i)
+      {
+        y[i] = this( x[i] );
+      }
+    };
+    
     ///
     /// Effectuer une inversion en utilisant la fonction LinFit
     ///
@@ -286,14 +364,18 @@ class Polynome : public virtual ParametricBase<T>
     T Retrieve(T* x, T* y, T* res, unsigned int len)
     {
       double s;
+      T* X{0};
+      if(x==0){  this->auto_base_lin<T>::LasyRebase( len ); }
+      else{      this->auto_base_lin<T>::StrongRebase( x, len ); }
+      X=this->auto_base_lin<T>::Base();
       if( res == 0 )
       {
-        s = LinFit<Polynome<T>, EigenMatrix, EigenVector>( *this, len, x, y, this->par.size(),
+        s = LinFit<Polynome<T>, EigenMatrix, EigenVector>( *this, len, X, y, this->par.size(),
                                                            this->par.data(), this->par.data() );
       }
       else
       {
-        s = LinFit<Polynome<T>, EigenMatrix, EigenVector>( *this, len, x, y, this->par.size(),
+        s = LinFit<Polynome<T>, EigenMatrix, EigenVector>( *this, len, X, y, this->par.size(),
                                                            this->par.data(), this->par.data(),
                                                            0, res, true );
       }
@@ -314,6 +396,9 @@ class Polynome : public virtual ParametricBase<T>
     };
     inline virtual operator bool () const {return true; }; //linéaire en alpha, r = true
     inline virtual operator bool () {return true; }; //linéaire en alpha, r = true
+    
+    inline virtual operator unsigned int () const { return this->par.size();};
+    inline virtual operator unsigned int () { return this->par.size();};
     
 };
 
@@ -450,38 +535,6 @@ typedef Function<Polynome<double>> d_polynom;
 #define _BIG_B_MATH_MODULE_
 #endif
 
-/*
- * Test unitaire
-#               d_invpow                                      reference                                                    d_polynom
-#1 2    3         4         5             6                7  8    9         10  11        12                   13 14   15        16        17        18
-#                                                          i  X(i)  Y(i)  Sol  F_sol(X)(i)  Y0(i)
-#  plot "./test.dat" u 2:6 w l lt 2 lw 5,"" u 2:3 w p lc 1, "" u 2:4 w lp lc 1, "" u 2:9 w p lc -1, "" u 2:11 w l lt -1 lw 2, "" u 2:15 w p lc 3, "" u 2:16 w l lt 1 lc 3 lw 2
-#
-0  0.1  139.287   556.878   6.39678e+10   147.419          0  0.1  137.411   0   146.063   147.419              0  0.1  138.419   138.002   138.002   147.419
-1  0.2  122.72   291.406   9.30246e+07   134.429           1  0.2  143.708   0   135.652   134.429              1  0.2  134.787   129.593   129.593   134.429
-2  0.3  121.445   199.512   2.03632e+06   122.749          2  0.3  131.659   0   125.811   122.749              2  0.3  116.161   121.504   121.504   122.749
-3  0.4  116.211   152.488   135280   112.928               3  0.4  120.487   0   116.526   112.928              3  0.4  101.802   113.737   113.737   112.928
-4  0.5  99.5047   123.791   16512.3   104.412              4  0.5  114.707   0   107.784   104.412              4  0.5  108.816   106.291   106.291   104.412
-5  0.6  105.844   104.402   2961.31   96.7632              5  0.6  92.3243   0   99.5706   96.7632              5  0.6  99.8007   99.1662   99.1662   96.7632
-6  0.7  90.1807   90.3976   692.588   89.8072              6  0.7  85.6096   0   91.8725   89.8072              6  0.7  92.8095   92.3626   92.3626   89.8072
-7  0.8  75.5685   79.7946   196.73   83.4222               7  0.8  76.3214   0   84.6761   83.4222              7  0.8  89.6948   85.8801   85.8801   83.4222
-8  0.9  75.7405   71.4792   64.8234   77.5066              8  0.9  61.4193   0   77.9679   77.5066              8  0.9  83.1395   79.7188   79.7188   77.5066
-9  1  77.1007   64.7779   24.0129   71.9985                9  1  71.4153   0   71.7343   71.9985                9  1  80.2823   73.8787   73.8787   71.9985
-10  1.1  63.5262   59.2587   9.77904   66.8701             10  1.1  72.469   0   65.9618   66.8701              10  1.1  76.6542   68.3597   68.3597   66.8701
-11  1.2  75.4157   54.6318   4.30645   62.1014             11  1.2  77.3232   0   60.6366   62.1014             11  1.2  62.024   63.1619   63.1619   62.1014
-12  1.3  58.7042   50.6951   2.0252   57.6506              12  1.3  55.6751   0   55.7452   57.6506             12  1.3  64.9502   58.2853   58.2853   57.6506
-13  1.4  40.783   47.3037   1.00719   53.4605              13  1.4  60.929   0   51.2741   53.4605              13  1.4  38.4685   53.7298   53.7298   53.4605
-14  1.5  50.3715   44.3506   0.525645   49.4906            14  1.5  45.0774   0   47.2096   49.4906             14  1.5  47.0827   49.4955   49.4955   49.4906
-15  1.6  47.6419   41.7552   0.286093   45.7377            15  1.6  43.1828   0   43.5383   45.7377             15  1.6  44.755   45.5824   45.5824   45.7377
-16  1.7  54.579   39.4558   0.161564   42.2168             16  1.7  38.7046   0   40.2463   42.2168             16  1.7  38.1391   41.9904   41.9904   42.2168
-17  1.8  39.6351   37.4039   0.0942689   38.9176           17  1.8  40.1974   0   37.3203   38.9176             17  1.8  46.5171   38.7196   38.7196   38.9176
-18  1.9  33.9574   35.5613   0.05663   35.8143             18  1.9  24.307   0   34.7466   35.8143              18  1.9  31.7073   35.77   35.77   35.8143
-19  2  33.5271   33.8973   0.0349205   32.8988             19  2  44.6193   0   32.5116   32.8988               19  2  19.9894   33.1416   33.1416   32.8988
-20  2.1  26.7121   32.3867   0.0220475   30.1586           20  2.1  19.3861   0   30.6017   30.1586             20  2.1  39.7647   30.8343   30.8343   30.1586
-21  2.2  28.367   31.0092   0.0142211   27.5675            21  2.2  20.9497   0   29.0034   27.5675             21  2.2  33.581   28.8482   28.8482   27.5675
-22  2.3  21.4248   29.7476   0.00935345   25.1187          22  2.3  31.0969   0   27.703   25.1187              22  2.3  20.9817   27.1833   27.1833   25.1187
-23  2.4  25.3911   28.5879   0.00626262   22.9306          23  2.4  28.4544   0   26.687   22.9306              23  2.4  25.3165   25.8395   25.8395   22.9306
-24  2.5  14.114   27.5181   0.00426239   21.4945           24  2.5  29.3526   0   25.9418   21.4945             24  2.5  30.2494   24.8169   24.8169   21.4945
-*/
+
 
 
