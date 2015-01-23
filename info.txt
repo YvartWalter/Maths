@@ -1,0 +1,2 @@
+ # Class polynome use default linear abscisse with auto-uptade if abscisse is provided throught Retrieve() or Foreall()
+ 
